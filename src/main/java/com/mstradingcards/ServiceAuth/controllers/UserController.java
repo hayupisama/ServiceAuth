@@ -1,9 +1,12 @@
 package com.mstradingcards.ServiceAuth.controllers;
 
 import java.util.List;
+import java.util.Optional;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -27,8 +30,6 @@ public class UserController {
 	@Autowired
 	private UserService userService;
 
-
-	
 	@GetMapping("/getAllUsers")
 	public List<UserDTO> getAllUsers() {
 		return userService.getAllUsers();
@@ -40,34 +41,36 @@ public class UserController {
 	}
 
 	@GetMapping("/")
-	public UserDTO getUserById() {
-		// TODO Get user_id from JWT
-		return userService.getUserById(null);
+	public UserDTO getUserById(Authentication authentication) {
+		Long userId = userService.getUserIdFromUsername(authentication.getName());
+		return userService.getUserById(userId);
 	}
 
-	
 	@DeleteMapping("/deleteUser/{id}")
 	public void deleteUser(@PathVariable Long id) {
 		userService.deleteUser(id);
 	}
 
 	@PostMapping("/createUser")
-	public UserDTO createUser(@RequestBody User user) {
-		return userService.createUser(user);
+	public ResponseEntity<UserDTO> createUser(@RequestBody User user) {
+		UserDTO userDTO = userService.createUser(user);
+		return Optional.ofNullable(userDTO).map(d -> {
+			return ResponseEntity.ok(userDTO);
+		}).orElse(ResponseEntity.status(HttpStatus.BAD_REQUEST).body(null));
 	}
 
 	@PostMapping("/login")
 	public ResponseEntity<AuthenticationResponse> login(@RequestBody LoginDTO loginDTO) {
-		return ResponseEntity.ok(userService.login(loginDTO)); 
-	}
-	
-	@PutMapping("/updatePassword/{id}")
-	public UserDTO updatePassword(@RequestParam String oldPassword, @RequestParam String newPassword) {
-		// TODO Get user_id from JWT
-		return userService.updatePassword(null, oldPassword, newPassword);
+		return ResponseEntity.ok(userService.login(loginDTO));
 	}
 
-	
+	@PutMapping("/updatePassword/{id}")
+	public UserDTO updatePassword(@RequestParam String oldPassword, @RequestParam String newPassword,
+			Authentication authentication) {
+		Long userId = userService.getUserIdFromUsername(authentication.getName());
+		return userService.updatePassword(userId, oldPassword, newPassword);
+	}
+
 	@GetMapping("/findByEmail")
 	public UserDTO findByEmail(@RequestParam String email) {
 		return userService.findByEmail(email);

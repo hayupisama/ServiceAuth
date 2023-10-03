@@ -8,6 +8,7 @@ import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.web.reactive.function.BodyInserters;
 import org.springframework.web.reactive.function.client.WebClient;
 
 import com.mstradingcards.ServiceAuth.config.JwtService;
@@ -34,7 +35,7 @@ public class UserService {
 	private AuthenticationManager authenticationManager;
 
 	@Autowired
-	private JwtService jwtService;	
+	private JwtService jwtService;
 
 	public List<UserDTO> getAllUsers() {
 		List<User> users = userRepository.findAll();
@@ -51,17 +52,21 @@ public class UserService {
 		return (user != null) ? convertToDTO(user) : null;
 	}
 
+
 	public UserDTO createUser(User user) {
 		user.setPassword(passwordEncoder.encode(user.getPassword()));
 		User save = userRepository.save(user);
+		try {
+			PlayerDTO playerDTO = convertToPlayerDTO(save);
+			webClient.post().uri("http://localhost:8082/api/players/createPlayer")
+					.body(BodyInserters.fromValue(playerDTO)).retrieve().bodyToMono(PlayerDTO.class).block();
 
-		/*
-		 * PlayerDTO playerDTO = convertToPlayerDTO(save);
-		 * webClient.post().uri("http://localhost:8081/api/players/createPlayer").body(
-		 * BodyInserters.fromValue(playerDTO))
-		 * .retrieve().bodyToMono(PlayerDTO.class).block();
-		 */
-		return convertToDTO(save);
+			return convertToDTO(save);
+		} catch (Exception e) {
+			System.err.println(e.getMessage());
+			userRepository.delete(save);
+			return null;
+		}
 	}
 
 	public UserDTO updatePassword(Long id, String oldPassword, String newPassword) {
@@ -90,8 +95,12 @@ public class UserService {
 		User user = userRepository.findByUsername(request.getUsername()).orElseThrow();
 		String jwtToken = jwtService.generateToken(user);
 		String refreshToken = jwtService.generateRefreshToken(user);
-		
+
 		return AuthenticationResponse.builder().accessToken(jwtToken).refreshToken(refreshToken).build();
+	}
+	
+	public Long getUserIdFromUsername(String username) {
+		return userRepository.getUserIdByUsername(username).orElse(null);
 	}
 
 	private UserDTO convertToDTO(User user) {
