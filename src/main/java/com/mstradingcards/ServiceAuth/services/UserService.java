@@ -16,6 +16,7 @@ import com.mstradingcards.ServiceAuth.dto.AuthenticationResponse;
 import com.mstradingcards.ServiceAuth.dto.LoginDTO;
 import com.mstradingcards.ServiceAuth.dto.PlayerDTO;
 import com.mstradingcards.ServiceAuth.dto.UserDTO;
+import com.mstradingcards.ServiceAuth.enums.UserRole;
 import com.mstradingcards.ServiceAuth.models.User;
 import com.mstradingcards.ServiceAuth.repository.UserRepository;
 
@@ -52,21 +53,25 @@ public class UserService {
 		return (user != null) ? convertToDTO(user) : null;
 	}
 
-
 	public UserDTO createUser(User user) {
 		user.setPassword(passwordEncoder.encode(user.getPassword()));
+		user.setAllParametersToDefault();
 		User save = userRepository.save(user);
-		try {
-			PlayerDTO playerDTO = convertToPlayerDTO(save);
-			webClient.post().uri("http://localhost:8082/api/players/createPlayer")
-					.body(BodyInserters.fromValue(playerDTO)).retrieve().bodyToMono(PlayerDTO.class).block();
+		if (UserRole.PLAYER.equals(user.getRole())) {
+			try {
+				PlayerDTO playerDTO = convertToPlayerDTO(save);
+				webClient.post().uri("http://localhost:8082/api/players/createPlayer")
+						.body(BodyInserters.fromValue(playerDTO)).retrieve().bodyToMono(PlayerDTO.class).block();
 
-			return convertToDTO(save);
-		} catch (Exception e) {
-			System.err.println(e.getMessage());
-			userRepository.delete(save);
-			return null;
+			} catch (Exception e) {
+				System.err.println(e.getMessage());
+				userRepository.delete(save);
+				return null;
+			}
+
 		}
+		return convertToDTO(save);
+
 	}
 
 	public UserDTO updatePassword(Long id, String oldPassword, String newPassword) {
@@ -98,7 +103,7 @@ public class UserService {
 
 		return AuthenticationResponse.builder().accessToken(jwtToken).refreshToken(refreshToken).build();
 	}
-	
+
 	public Long getUserIdFromUsername(String username) {
 		return userRepository.getUserIdByUsername(username).orElse(null);
 	}
