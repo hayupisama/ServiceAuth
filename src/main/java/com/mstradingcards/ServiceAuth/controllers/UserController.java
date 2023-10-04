@@ -20,6 +20,7 @@ import org.springframework.web.bind.annotation.RestController;
 import com.mstradingcards.ServiceAuth.dto.AuthenticationResponse;
 import com.mstradingcards.ServiceAuth.dto.LoginDTO;
 import com.mstradingcards.ServiceAuth.dto.UserDTO;
+import com.mstradingcards.ServiceAuth.enums.UserRole;
 import com.mstradingcards.ServiceAuth.models.User;
 import com.mstradingcards.ServiceAuth.services.UserService;
 
@@ -53,7 +54,11 @@ public class UserController {
 
 	@PostMapping("/createUser")
 	public ResponseEntity<UserDTO> createUser(@RequestBody User user) {
-		UserDTO userDTO = userService.createUser(user);
+		UserDTO userDTO;
+		if (user.getRole().equals(UserRole.GUEST))
+			userDTO = userService.createUserPlayer(user);
+		else
+			userDTO = userService.createUser(user);
 		return Optional.ofNullable(userDTO).map(d -> {
 			return ResponseEntity.ok(userDTO);
 		}).orElse(ResponseEntity.status(HttpStatus.BAD_REQUEST).body(null));

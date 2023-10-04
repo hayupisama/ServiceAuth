@@ -73,6 +73,27 @@ public class UserService {
 		return convertToDTO(save);
 
 	}
+	public UserDTO createUserPlayer(User user) {
+		user.setRole(UserRole.PLAYER);
+		user.setPassword(passwordEncoder.encode(user.getPassword()));
+		user.setAllParametersToDefault();
+		User save = userRepository.save(user);
+		
+			try {
+				PlayerDTO playerDTO = convertToPlayerDTO(save);
+				webClient.post().uri("http://localhost:8082/api/players/createPlayer")
+						.body(BodyInserters.fromValue(playerDTO)).retrieve().bodyToMono(PlayerDTO.class).block();
+
+			} catch (Exception e) {
+				System.err.println(e.getMessage());
+				userRepository.delete(save);
+				return null;
+			}
+
+		
+		return convertToDTO(save);
+
+	}
 
 	public UserDTO updatePassword(Long id, String oldPassword, String newPassword) {
 		User existingUser = userRepository.findById(id).orElse(null);
